@@ -344,10 +344,13 @@ const struct opcode_info_t &get_opcode_info(uint8 opcode)
 }
 
 //----------------------------------------------------------------------
-int idaapi ana(void)
-{
-  cmd.Op1.dtyp = dt_byte;
-  uint8 code = ua_next_byte();
+//int idaapi ana(void)
+int idaapi ana(insn_t* _insn) {
+    insn_t& cmd = *_insn;
+
+  cmd.Op1.dtype = dt_byte;
+  //uint8 code = ua_next_byte();
+  uint8 code = cmd.get_next_byte();// ua_next_byte();
 
   // Fetch instruction info
   const struct opcode_info_t &opinfo = get_opcode_info(code);
@@ -356,8 +359,8 @@ int idaapi ana(void)
   int op_i = 0;
   if ( opinfo.dreg != -1 )
   {
-    cmd.Operands[op_i].type = o_reg;
-    cmd.Operands[op_i].phrase = opinfo.dreg;
+    cmd.ops[op_i].type = o_reg;
+    cmd.ops[op_i].phrase = opinfo.dreg;
     op_i++;
   }
 
@@ -366,173 +369,173 @@ int idaapi ana(void)
     case IMPLIED:
       if ( cmd.itype == SPC_tcall )
       {
-        cmd.Operands[op_i].type   = o_displ;
-        cmd.Operands[op_i].phrase = rTCall;
-        cmd.Operands[op_i].value  = code >> 4;
-        cmd.Operands[op_i].addr   = 0xffde - (cmd.Operands[op_i].value << 1);
+        cmd.ops[op_i].type   = o_displ;
+        cmd.ops[op_i].phrase = rTCall;
+        cmd.ops[op_i].value  = code >> 4;
+        cmd.ops[op_i].addr   = 0xffde - (cmd.ops[op_i].value << 1);
         op_i++;
       }
       break;
     case INDIR_IX:
-      cmd.Operands[op_i].type = o_phrase;
-      cmd.Operands[op_i].phrase = riX;
+      cmd.ops[op_i].type = o_phrase;
+      cmd.ops[op_i].phrase = riX;
       op_i++;
       break;
     case INDIR_IX_INC:
-      cmd.Operands[op_i].type = o_phrase;
-      cmd.Operands[op_i].phrase = riXinc;
+      cmd.ops[op_i].type = o_phrase;
+      cmd.ops[op_i].phrase = riXinc;
       op_i++;
       break;
     case INDIR_IX_IY:
-      cmd.Operands[op_i].type = o_phrase;
-      cmd.Operands[op_i].phrase = riX;
+      cmd.ops[op_i].type = o_phrase;
+      cmd.ops[op_i].phrase = riX;
       op_i++;
-      cmd.Operands[op_i].type = o_phrase;
-      cmd.Operands[op_i].phrase = riY;
+      cmd.ops[op_i].type = o_phrase;
+      cmd.ops[op_i].phrase = riY;
       op_i++;
       break;
     case IMM:
-      cmd.Operands[op_i].type = o_imm;
-      cmd.Operands[op_i].value = ua_next_byte();
-      cmd.Operands[op_i].dtyp = dt_byte;
+      cmd.ops[op_i].type = o_imm;
+      cmd.ops[op_i].value = cmd.get_next_byte(); //ua_next_byte();
+      cmd.ops[op_i].dtype = dt_byte;
       op_i++;
       break;
     case IMM_DP:
-      cmd.Operands[op_i + 1].type = o_imm;
-      cmd.Operands[op_i + 1].value = ua_next_byte();
-      cmd.Operands[op_i + 1].dtyp = dt_byte;
+      cmd.ops[op_i + 1].type = o_imm;
+      cmd.ops[op_i + 1].value = cmd.get_next_byte(); //ua_next_byte();
+      cmd.ops[op_i + 1].dtype = dt_byte;
 
-      cmd.Operands[op_i].type   = o_displ;
-      cmd.Operands[op_i].phrase = rD;
-      cmd.Operands[op_i].addr   = ua_next_byte();
-      cmd.Operands[op_i].dtyp   = dt_byte;
+      cmd.ops[op_i].type   = o_displ;
+      cmd.ops[op_i].phrase = rD;
+      cmd.ops[op_i].addr   = cmd.get_next_byte(); //ua_next_byte();
+      cmd.ops[op_i].dtype   = dt_byte;
 
       op_i += 2;
       break;
     case ABS:
-      cmd.Operands[op_i].type = o_mem;
-      cmd.Operands[op_i].addr = ua_next_word();
+      cmd.ops[op_i].type = o_mem;
+      cmd.ops[op_i].addr = cmd.get_next_word(); //ua_next_word();
       if ( cmd.itype == SPC_call || cmd.itype == SPC_jmp )
       {
-        cmd.Operands[op_i].type = o_near;
-        cmd.Operands[op_i].full_target_ea = cmd.Operands[op_i].addr;
+        cmd.ops[op_i].type = o_near;
+        cmd.ops[op_i].full_target_ea = cmd.ops[op_i].addr;
       }
       else
-        cmd.Operands[op_i].dtyp = dt_byte;
+        cmd.ops[op_i].dtype = dt_byte;
       op_i++;
       break;
     case ABS_IX:
     case ABS_IY:
-      cmd.Operands[op_i].type   = o_displ;
-      cmd.Operands[op_i].phrase = opinfo.addr == ABS_IX ? rAbsX : rAbsY;
-      cmd.Operands[op_i].addr   = ua_next_word();
-      cmd.Operands[op_i].dtyp   = dt_byte;
+      cmd.ops[op_i].type   = o_displ;
+      cmd.ops[op_i].phrase = opinfo.addr == ABS_IX ? rAbsX : rAbsY;
+      cmd.ops[op_i].addr   = cmd.get_next_word(); //ua_next_word();
+      cmd.ops[op_i].dtype   = dt_byte;
       op_i++;
       break;
     case ABS_IX_INDIR:
-      cmd.Operands[op_i].type   = o_displ;
-      cmd.Operands[op_i].phrase = rAbsXi;
-      cmd.Operands[op_i].addr   = ua_next_word();
+      cmd.ops[op_i].type   = o_displ;
+      cmd.ops[op_i].phrase = rAbsXi;
+      cmd.ops[op_i].addr   = cmd.get_next_word(); //ua_next_word();
       if ( cmd.itype == SPC_jmp )
-        cmd.Operands[op_i].dtyp = dt_word;
+        cmd.ops[op_i].dtype = dt_word;
       else
-        cmd.Operands[op_i].dtyp = dt_byte;
+        cmd.ops[op_i].dtype = dt_byte;
       op_i++;
       break;
     case BIT_OP:
       {
-        uint16 v = ua_next_word();
-        cmd.Operands[op_i].type   = o_displ;
+        uint16 v = cmd.get_next_word(); //ua_next_word();
+        cmd.ops[op_i].type   = o_displ;
         if ( code == 0x2a || code == 0x6a )
-            cmd.Operands[op_i].phrase = rDbitnot;
+            cmd.ops[op_i].phrase = rDbitnot;
         else
-            cmd.Operands[op_i].phrase = rDbit;
-        cmd.Operands[op_i].addr   = v & 0x1fff;
-        cmd.Operands[op_i].value  = v >> 13;
-        cmd.Operands[op_i].dtyp   = dt_byte;
+            cmd.ops[op_i].phrase = rDbit;
+        cmd.ops[op_i].addr   = v & 0x1fff;
+        cmd.ops[op_i].value  = v >> 13;
+        cmd.ops[op_i].dtype   = dt_byte;
         op_i++;
       }
       break;
     case DP:
       if ( cmd.itype == SPC_pcall )
       {
-        cmd.Operands[op_i].type = o_displ;
-        cmd.Operands[op_i].phrase = rPCall;
-        cmd.Operands[op_i].value  = ua_next_byte();
-        cmd.Operands[op_i].addr = 0xff00 | cmd.Operands[op_i].value;
+        cmd.ops[op_i].type = o_displ;
+        cmd.ops[op_i].phrase = rPCall;
+        cmd.ops[op_i].value  = cmd.get_next_byte(); //ua_next_byte();
+        cmd.ops[op_i].addr = 0xff00 | cmd.ops[op_i].value;
         op_i++;
       }
       else
       {
-        cmd.Operands[op_i].type   = o_displ;
-        cmd.Operands[op_i].phrase = rD;
-        cmd.Operands[op_i].addr   = ua_next_byte();
+        cmd.ops[op_i].type   = o_displ;
+        cmd.ops[op_i].phrase = rD;
+        cmd.ops[op_i].addr   = cmd.get_next_byte(); //ua_next_byte();
         if ( cmd.itype == SPC_decw || cmd.itype == SPC_incw || cmd.itype == SPC_cmpw
           || cmd.itype == SPC_addw || cmd.itype == SPC_subw || cmd.itype == SPC_movw)
-          cmd.Operands[op_i].dtyp   = dt_word;
+          cmd.ops[op_i].dtype   = dt_word;
         else
-          cmd.Operands[op_i].dtyp   = dt_byte;
+          cmd.ops[op_i].dtype   = dt_byte;
         op_i++;
       }
       break;
     case DP_IY:
     case DP_IX:
-      cmd.Operands[op_i].type   = o_displ;
-      cmd.Operands[op_i].phrase = opinfo.addr == DP_IX ? rDX : rDY;
-      cmd.Operands[op_i].addr   = ua_next_byte();
-      cmd.Operands[op_i].dtyp   = dt_byte;
+      cmd.ops[op_i].type   = o_displ;
+      cmd.ops[op_i].phrase = opinfo.addr == DP_IX ? rDX : rDY;
+      cmd.ops[op_i].addr   = cmd.get_next_byte(); //ua_next_byte();
+      cmd.ops[op_i].dtype   = dt_byte;
       op_i++;
       break;
     case DP_IX_INDIR:
-      cmd.Operands[op_i].type   = o_displ;
-      cmd.Operands[op_i].phrase = riDX;
-      cmd.Operands[op_i].addr   = ua_next_byte();
-      cmd.Operands[op_i].dtyp   = dt_byte;
+      cmd.ops[op_i].type   = o_displ;
+      cmd.ops[op_i].phrase = riDX;
+      cmd.ops[op_i].addr   = cmd.get_next_byte(); //ua_next_byte();
+      cmd.ops[op_i].dtype   = dt_byte;
       op_i++;
       break;
     case DP_INDIR_IY:
-      cmd.Operands[op_i].type   = o_displ;
-      cmd.Operands[op_i].phrase = rDiY;
-      cmd.Operands[op_i].addr   = ua_next_byte();
-      cmd.Operands[op_i].dtyp   = dt_byte;
+      cmd.ops[op_i].type   = o_displ;
+      cmd.ops[op_i].phrase = rDiY;
+      cmd.ops[op_i].addr   = cmd.get_next_byte(); //ua_next_byte();
+      cmd.ops[op_i].dtype   = dt_byte;
       op_i++;
       break;
     case DP_DP:
-      cmd.Operands[op_i + 1].type   = o_displ;
-      cmd.Operands[op_i + 1].phrase = rD;
-      cmd.Operands[op_i + 1].addr   = ua_next_byte();
-      cmd.Operands[op_i + 1].dtyp   = dt_byte;
+      cmd.ops[op_i + 1].type   = o_displ;
+      cmd.ops[op_i + 1].phrase = rD;
+      cmd.ops[op_i + 1].addr   = cmd.get_next_byte(); //ua_next_byte();
+      cmd.ops[op_i + 1].dtype   = dt_byte;
 
-      cmd.Operands[op_i].type   = o_displ;
-      cmd.Operands[op_i].phrase = rD;
-      cmd.Operands[op_i].addr   = ua_next_byte();
-      cmd.Operands[op_i].dtyp   = dt_byte;
+      cmd.ops[op_i].type   = o_displ;
+      cmd.ops[op_i].phrase = rD;
+      cmd.ops[op_i].addr   = cmd.get_next_byte(); //ua_next_byte();
+      cmd.ops[op_i].dtype   = dt_byte;
 
       op_i += 2;
       break;
     case DP_PC_REL:
 	case DP_IX_PC_REL:
-      cmd.Operands[op_i].type   = o_displ;
+      cmd.ops[op_i].type   = o_displ;
       if ( opinfo.addr == DP_IX_PC_REL )
-        cmd.Operands[op_i].phrase = rDX;
+        cmd.ops[op_i].phrase = rDX;
       else
-        cmd.Operands[op_i].phrase = rD;
-      cmd.Operands[op_i].addr   = ua_next_byte();
-      cmd.Operands[op_i].dtyp   = dt_byte;
+        cmd.ops[op_i].phrase = rD;
+      cmd.ops[op_i].addr   = cmd.get_next_byte(); //ua_next_byte();
+      cmd.ops[op_i].dtype   = dt_byte;
       op_i++;
 
-      cmd.Operands[op_i].type = o_near;
+      cmd.ops[op_i].type = o_near;
       {
-        char x = ua_next_byte();
-        cmd.Operands[op_i].addr = uint16(cmd.ip + cmd.size + x);
+        char x = cmd.get_next_byte(); //ua_next_byte();
+        cmd.ops[op_i].addr = uint16(cmd.ip + cmd.size + x);
       }
       op_i++;
       break;
     case PC_REL:
-      cmd.Operands[op_i].type = o_near;
+      cmd.ops[op_i].type = o_near;
       {
-        char x = ua_next_byte();
-        cmd.Operands[op_i].addr = uint16(cmd.ip + cmd.size + x);
+        char x = cmd.get_next_byte(); //ua_next_byte();
+        cmd.ops[op_i].addr = uint16(cmd.ip + cmd.size + x);
       }
       op_i++;
       break;
@@ -543,8 +546,8 @@ int idaapi ana(void)
 
   if ( opinfo.sreg != -1 )
   {
-    cmd.Operands[op_i].type = o_reg;
-    cmd.Operands[op_i].phrase = opinfo.sreg;
+    cmd.ops[op_i].type = o_reg;
+    cmd.ops[op_i].phrase = opinfo.sreg;
     op_i++;
   }
 

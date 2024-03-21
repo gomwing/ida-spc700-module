@@ -13,7 +13,7 @@
 //----------------------------------------------------------------------
 static void out_dp(op_t &x)
 {
-  sel_t dp = get_segreg(cmd.ea, rFp);
+  sel_t dp = get_sreg(cmd.ea, rFp);
   if ( dp != BADSEL )
   {
     ea_t ea = (dp << 8) | x.addr;

@@ -9,7 +9,7 @@
  */
 
 #include <idp.hpp>
-#include <srarea.hpp>
+#include <segregs.hpp>
 #include <diskio.hpp>
 #include <enum.hpp>
 
@@ -63,7 +63,7 @@ static tid_t set_dsp_regs_enum()
   enum_t id = get_enum(enum_name);
   if ( id != BADNODE )
     return id;
-  id = add_enum(-1, enum_name, hexflag());
+  id = add_enum(-1, enum_name, hex_flag());
 
   add_enum_member(id, "V0VOLL"  , 0x00);
   add_enum_member(id, "V0VOLR"  , 0x01);

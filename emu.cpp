@@ -12,13 +12,13 @@
 
 static bool flow;
 //------------------------------------------------------------------------
-static void doImmdValue(void)
+static void doImmdValue(insn_t& cmd) //void)
 {
-  doImmd(cmd.ea);
+    set_immd(cmd.ea);
 }
 
 //----------------------------------------------------------------------
-static void handle_operand(op_t &x, bool read_access)
+static void handle_operand(insn_t& cmd, op_t &x, bool read_access)
 {
   ea_t ea;
   dref_t dreftype;
@@ -33,9 +33,9 @@ static void handle_operand(op_t &x, bool read_access)
       QASSERT(557, read_access);
       dreftype = dr_O;
 MAKE_IMMD:
-      doImmdValue();
-      if ( isOff(uFlag, x.n) )
-        ua_add_off_drefs(x, dreftype);
+      doImmdValue(cmd);
+      if ( is_off(get_flags(cmd.ea)  /*uFlag*/, x.n))
+        cmd.add_off_drefs /*ua_add_off_drefs*/(x, dreftype, 0);
       break;
 
     case o_displ:
@@ -48,10 +48,10 @@ MAKE_IMMD:
         case riDX:      // "(dp, X)"
         case rDiY:      // "(dp,n), Y"
           {
-            sel_t dp = get_segreg(cmd.ea, rFp);
+            sel_t dp = get_sreg(cmd.ea, rFp);
             if ( dp != BADSEL )
             {
-              ea = toEA(dataSeg_op(x.n), (dp << 8) | x.addr);
+              ea = to_ea(map_data_ea /*dataSeg_op*/ (cmd, x.n), (dp << 8) | x.addr);
               goto MAKE_DREF;
             }
             else
@@ -65,7 +65,8 @@ MAKE_IMMD:
         case rAbsXi:    // "(abs,X)"
         case rDbit:     // "abs.n"
         case rDbitnot:  // "/abs.n"
-          ea = toEA(dataSeg_op(x.n), x.addr);
+          //ea = to_ea(dataSeg_op(x.n), x.addr);
+          ea = to_ea(map_data_ea(cmd, x.n), x.addr);
           goto MAKE_DREF;
 
         case rTCall:    // "tcall n"
@@ -79,12 +80,16 @@ MAKE_IMMD:
       break;
 
     case o_mem:
-      ea = toEA(dataSeg_op(x.n), x.addr);
+      ea = to_ea(map_data_ea(cmd, x.n), x.addr);
 MAKE_DREF:
-      ua_dodata2(x.offb, ea, x.dtyp);
+      //ua_dodata2(x.offb, ea, x.dtype);
+      cmd.create_op_data(x.offb, ea, x.dtype);
+#ifdef GOMWING
       if ( !read_access )
         doVar(ea);
-      ua_add_dref(x.offb, ea, read_access ? dr_R : dr_W);
+#endif
+      //ua_add_dref(x.offb, ea, read_access ? dr_R : dr_W);
+      cmd.add_dref(x.offb, ea, read_access ? dr_R : dr_W);
       break;
 
     case o_near:
@@ -92,8 +97,8 @@ MAKE_DREF:
       {
         if ( x.type == o_near )
         {
-          ea_t segbase = codeSeg(x.addr, x.n);
-          ea = toEA(segbase, x.addr);
+          ea_t segbase = map_code_ea(cmd, x.addr, x.n);
+          ea = to_ea(segbase, x.addr);
         }
         else
         {
@@ -101,11 +106,11 @@ MAKE_DREF:
         }
 
 MAKE_CREF:
-        bool iscall = InstrIsSet(cmd.itype, CF_CALL);
+        bool iscall = has_insn_feature(cmd.itype, CF_CALL);
         cref_t creftype = x.type == o_near
                         ? iscall ? fl_CN : fl_JN
                         : iscall ? fl_CF : fl_JF;
-        ua_add_cref(x.offb, ea, creftype);
+        cmd.add_cref /* ua_add_cref*/(x.offb, ea, creftype);
         if ( flow && iscall )
           flow = func_does_return(ea);
       }
@@ -125,16 +130,17 @@ static void handle_jump_table(ea_t /*jtable_addr*/)
 }
 
 //----------------------------------------------------------------------
-int idaapi emu(void)
+//int idaapi emu(void)
+int idaapi emu(insn_t& cmd)
 {
   uint32 Feature = cmd.get_canon_feature();
   flow = ((Feature & CF_STOP) == 0);
 
-  if ( Feature & CF_USE1 ) handle_operand(cmd.Op1, 1);
-  if ( Feature & CF_USE2 ) handle_operand(cmd.Op2, 1);
-  if ( Feature & CF_CHG1 ) handle_operand(cmd.Op1, 0);
-  if ( Feature & CF_CHG2 ) handle_operand(cmd.Op2, 0);
-  if ( Feature & CF_JUMP ) QueueSet(Q_jumps,cmd.ea);
+  if ( Feature & CF_USE1 ) handle_operand(cmd, cmd.ops[0] /*.Op1*/, 1);
+  if ( Feature & CF_USE2 ) handle_operand(cmd, cmd.ops[1] /*.Op2*/, 1);
+  if ( Feature & CF_CHG1 ) handle_operand(cmd, cmd.ops[0] /*.Op1*/, 0);
+  if ( Feature & CF_CHG2 ) handle_operand(cmd, cmd.ops[0] /*.Op2*/, 0);
+  if ( Feature & CF_JUMP ) remember_problem(PR_JUMP /*Q_jumps*/, cmd.ea);
 
   uint8 code = get_byte(cmd.ea);
   const struct opcode_info_t &opinfo = get_opcode_info(code);
@@ -142,23 +148,23 @@ int idaapi emu(void)
   if ( opinfo.itype == SPC_jmp )
   {
     if ( opinfo.addr == ABS_IX_INDIR ) {
-      QueueSet(Q_jumps,cmd.ea);
+        remember_problem(PR_JUMP /*Q_jumps*/, cmd.ea);
 
       handle_jump_table(cmd.Op1.addr);
     }
   }
 
   if ( flow )
-    ua_add_cref(0,cmd.ea+cmd.size,fl_F);
+    cmd.add_cref            /*ua_add_cref*/(0, cmd.ea + cmd.size, fl_F);
 
   switch ( cmd.itype )
   {
     case SPC_setp:
-      split_srarea(cmd.ea + 1, rFp, 1, SR_auto);
+        split_sreg_range /*split_srarea*/(cmd.ea + 1, rFp, 1, SR_auto);
       break;
 
     case SPC_clrp:
-      split_srarea(cmd.ea + 1, rFp, 0, SR_auto);
+        split_sreg_range /*split_srarea*/(cmd.ea + 1, rFp, 0, SR_auto);
       break;
 
     case SPC_jmp:
@@ -167,7 +173,7 @@ int idaapi emu(void)
         if ( cmd.Op1.full_target_ea )
         {
           ea_t ftea = cmd.Op1.full_target_ea;
-          split_srarea(ftea, rFp,  get_segreg(cmd.ea, rFp),  SR_auto);
+          split_sreg_range/*split_srarea*/(ftea, rFp, get_sreg(cmd.ea, rFp), SR_auto);
         }
       }
       break;

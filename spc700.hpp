@@ -12,7 +12,7 @@
 #define _SPC700_HPP
 
 #include "../idaidp.hpp"
-#include <srarea.hpp>
+#include <segregs.hpp>
 #include "ins.hpp"
 
 // If there is an address in 'Op[N].full_target_ea',
