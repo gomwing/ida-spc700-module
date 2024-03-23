@@ -41,9 +41,12 @@ CASSERT(qnumber(RegNames) == rLast);
 //----------------------------------------------------------------------
 static netnode helper;
 char device[MAXSTR];
+#ifdef IDA61
 static size_t numports = 0;
 static ioport_t* ports = NULL;
-
+#else
+static ioports_t ports;
+#endif
 //--------------------------------------------------------------------------
 //lint -esym(528,ioresp_ok) is not referenced
 static bool ioresp_ok(void)
@@ -184,7 +187,7 @@ static tid_t set_dsp_regs_enum()
 //static int idaapi notify(processor_t::idp_notify msgid, ...) // Various messages:
 static ssize_t idaapi notify(void*, int msgid, va_list va)
 {
-#ifdef GOMWING
+#ifdef IDA61
 	va_list va;
 	va_start(va, msgid);
 
@@ -195,17 +198,21 @@ static ssize_t idaapi notify(void*, int msgid, va_list va)
 
 	int code = invoke_callbacks(HT_IDP, msgid, va);
 	if (code) return code;
-
-	int retcode = 1;
 #endif
+	int retcode = 1;
+
 	switch (msgid)
 	{
 	case processor_t::ev_init:
+		////	hook_to_notification_point(HT_IDB, idb_callback);
 		helper.create("$ spc700");
 		break;
 	case processor_t::ev_term:
-#ifdef GOMWING
+#ifdef IDA61
 		free_ioports(ports, numports);
+#else
+		ports.clear();
+		////	unhook_from_notification_point(HT_IDB, idb_callback);
 #endif
 		break;
 	case processor_t::ev_oldfile:
@@ -229,11 +236,12 @@ static ssize_t idaapi notify(void*, int msgid, va_list va)
 	break;
 
 	case processor_t::ev_may_be_func:
+		const insn_t* insn = va_arg(va, insn_t*);
 		retcode = 0;
 		ea_t cref_addr;
-		for (cref_addr = get_first_cref_to(cmd.ea);
+		for (cref_addr = get_first_cref_to(insn->ea);
 			cref_addr != BADADDR;
-			cref_addr = get_next_cref_to(cmd.ea, cref_addr))
+			cref_addr = get_next_cref_to(insn->ea, cref_addr))
 		{
 			uint8 opcode = get_byte(cref_addr);
 			const struct opcode_info_t& opinfo = get_opcode_info(opcode);
@@ -250,9 +258,9 @@ static ssize_t idaapi notify(void*, int msgid, va_list va)
 	{
 		const struct opcode_info_t& opinfo = get_opcode_info(get_byte(va_arg(va, ea_t)));
 		if (opinfo.itype == SPC_call)
-			retcode = 2;
+			retcode = 1;
 		else
-			retcode = 0;
+			retcode = -1;
 	}
 	break;
 
@@ -261,9 +269,9 @@ static ssize_t idaapi notify(void*, int msgid, va_list va)
 		const struct opcode_info_t& opinfo = get_opcode_info(get_byte(va_arg(va, ea_t)));
 		if (opinfo.itype == SPC_ret
 			|| opinfo.itype == SPC_reti)
-			retcode = 2;
+			retcode = 1;
 		else
-			retcode = 0;
+			retcode = -1;
 	}
 	break;
 
@@ -273,16 +281,15 @@ static ssize_t idaapi notify(void*, int msgid, va_list va)
 		if (opinfo.itype == SPC_jmp)
 		{
 			if (opinfo.addr == ABS_IX_INDIR)
-				retcode = 3;
-			else
 				retcode = 2;
+			else
+				retcode = 1;
 		}
 		else
-			retcode = 1;
+			retcode = 0;
 	}
 	break;
-#ifndef GOMWING
-
+#ifndef IDA61
 	case processor_t::ev_out_header:
 	{
 		outctx_t* ctx = va_arg(va, outctx_t*);
@@ -290,20 +297,59 @@ static ssize_t idaapi notify(void*, int msgid, va_list va)
 		return 1;
 	}
 
+	case processor_t::ev_out_footer:
+	{
+		outctx_t* ctx = va_arg(va, outctx_t*);
+		footer(*ctx);
+		return 1;
+	}
 
+	case processor_t::ev_out_segstart:
+	{
+		outctx_t* ctx = va_arg(va, outctx_t*);
+		segment_t* seg = va_arg(va, segment_t*);
+		segstart(*ctx, seg);
+		return 1;
+	}
+
+	case processor_t::ev_out_assumes:
+	{
+		outctx_t* ctx = va_arg(va, outctx_t*);
+		assumes(*ctx);
+		return 1;
+	}
+
+	case processor_t::ev_ana_insn:
+	{
+		insn_t* out = va_arg(va, insn_t*);
+		return ana(out);
+	}
+
+	case processor_t::ev_emu_insn:
+	{
+		const insn_t* insn = va_arg(va, const insn_t*);
+		return emu(*insn) ? 1 : -1;
+	}
+
+	case processor_t::ev_out_insn:
+	{
+		outctx_t* ctx = va_arg(va, outctx_t*);
+		out_insn(*ctx);
+		return 1;
+	}
+
+	case processor_t::ev_out_operand:
+	{
+		outctx_t* ctx = va_arg(va, outctx_t*);
+		const op_t* op = va_arg(va, const op_t*);
+		return out_opnd(*ctx, *op) ? 1 : -1;
+	}
 #endif
-
-
 	default:
+		retcode = 0;
 		break;
 	}
-#ifdef GOMWING
-	va_end(va);
-
 	return retcode;
-#else
-	return 0;
-#endif
 }
 
 

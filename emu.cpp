@@ -84,7 +84,7 @@ static void handle_operand(insn_t& cmd, op_t& x, bool read_access)
 	MAKE_DREF:
 		//ua_dodata2(x.offb, ea, x.dtype);
 		cmd.create_op_data(x.offb, ea, x.dtype);
-#ifdef GOMWING
+#ifdef IDA61
 		if (!read_access)
 			doVar(ea);
 #endif

@@ -226,7 +226,7 @@ void    idaapi assumes(outctx_t& ctx, ea_t ea)
 //void idaapi out(void)
 void out_spc700_t::out_insn(void)
 {
-#ifdef GOMWING
+#ifdef IDA61
 	char buf[MAXSTR];
 
 	init_output_buffer(buf, sizeof(buf));
@@ -249,7 +249,7 @@ void out_spc700_t::out_insn(void)
 		out_char(' ');
 		out_one_operand(1);
 	}
-#ifdef GOMWING
+#ifdef IDA61
 	if (isVoid(cmd.ea, uFlag, 0))
 		OutImmChar(cmd.Op1);
 
