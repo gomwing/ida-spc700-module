@@ -137,7 +137,7 @@ void idaapi segstart(outctx_t& ctx, segment_t* seg);
 //int     idaapi ana(void);
 int idaapi ana(insn_t* _insn);
 //int     idaapi emu(void);
-int     idaapi emu(const insn_t& insn);
+int     idaapi emu(insn_t& insn);
 #ifdef IDA61
 void    idaapi out(void);
 bool    idaapi outop(op_t &op);

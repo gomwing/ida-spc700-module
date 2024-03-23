@@ -40,7 +40,7 @@ CASSERT(qnumber(RegNames) == rLast);
 //       Prepare global variables & defines for ../iocommon.cpp
 //----------------------------------------------------------------------
 static netnode helper;
-char device[MAXSTR];
+qstring device; //char device[MAXSTR];
 #ifdef IDA61
 static size_t numports = 0;
 static ioport_t* ports = NULL;
@@ -236,6 +236,7 @@ static ssize_t idaapi notify(void*, int msgid, va_list va)
 	break;
 
 	case processor_t::ev_may_be_func:
+	{
 		const insn_t* insn = va_arg(va, insn_t*);
 		retcode = 0;
 		ea_t cref_addr;
@@ -252,7 +253,8 @@ static ssize_t idaapi notify(void*, int msgid, va_list va)
 				break;
 			}
 		}
-		break;
+	}
+	break;
 
 	case processor_t::ev_is_call_insn:
 	{
@@ -314,8 +316,9 @@ static ssize_t idaapi notify(void*, int msgid, va_list va)
 
 	case processor_t::ev_out_assumes:
 	{
+		const insn_t* insn = va_arg(va, insn_t*);
 		outctx_t* ctx = va_arg(va, outctx_t*);
-		assumes(*ctx);
+		assumes(*ctx, insn->ea);
 		return 1;
 	}
 
@@ -328,7 +331,7 @@ static ssize_t idaapi notify(void*, int msgid, va_list va)
 	case processor_t::ev_emu_insn:
 	{
 		const insn_t* insn = va_arg(va, const insn_t*);
-		return emu(*insn) ? 1 : -1;
+		return emu((insn_t & )*insn) ? 1 : -1;
 	}
 
 	case processor_t::ev_out_insn:
@@ -363,7 +366,7 @@ static const asm_t xladxasm =
   "XLA-DX Assembler by Ville Helin",
   0,
   NULL,         // headers
-  NULL,
+  //NULL,
   ".org",
   NULL,
 

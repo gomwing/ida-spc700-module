@@ -131,7 +131,7 @@ static void handle_jump_table(ea_t /*jtable_addr*/)
 
 //----------------------------------------------------------------------
 //int idaapi emu(void)
-int idaapi emu(insn_t& cmd)
+int     idaapi emu(insn_t& cmd)
 {
 	uint32 Feature = cmd.get_canon_feature();
 	flow = ((Feature & CF_STOP) == 0);
