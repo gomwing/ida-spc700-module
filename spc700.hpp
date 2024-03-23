@@ -126,15 +126,22 @@ struct opcode_info_t
 const struct opcode_info_t &get_opcode_info(uint8 opcode);
 
 //------------------------------------------------------------------------
-void    idaapi header(void);
-void    idaapi footer(void);
+//void    idaapi header(void);
+void idaapi header(outctx_t& ctx);
+//void    idaapi footer(void);
+void idaapi footer(outctx_t& ctx);
 
-void    idaapi segstart(ea_t ea);
+//void    idaapi segstart(ea_t ea);
+void idaapi segstart(outctx_t& ctx, segment_t* seg);
 
-int     idaapi ana(void);
-int     idaapi emu(void);
+//int     idaapi ana(void);
+int idaapi ana(insn_t* _insn);
+//int     idaapi emu(void);
+int     idaapi emu(const insn_t& insn);
+#ifdef GOMWING
 void    idaapi out(void);
 bool    idaapi outop(op_t &op);
-void    idaapi assumes(ea_t ea);
-
+#endif
+//void    idaapi assumes(ea_t ea);
+void    idaapi assumes(outctx_t& ctx, ea_t ea);
 #endif
